@@ -155,9 +155,9 @@ user-supplied strings, per AGENTS.md §9 (path traversal).
 Pure, DB-free state machine in `lib/pipeline/state.ts`:
 
 ```ts
-function canStart(project): boolean       // stepState is IDLE or FAILED, or RUNNING-but-stale
-function isStale(project, now): boolean   // stepState===RUNNING && now - stepStartedAt > STALE_MS
-function advance(project): Partial<Project> // on success: bump currentStep, reset stepState/Error/StartedAt
+function canStart(project): boolean; // stepState is IDLE or FAILED, or RUNNING-but-stale
+function isStale(project, now): boolean; // stepState===RUNNING && now - stepStartedAt > STALE_MS
+function advance(project): Partial<Project>; // on success: bump currentStep, reset stepState/Error/StartedAt
 ```
 
 Unit-testable without Prisma. `lib/pipeline/run.ts` wraps each step route:
@@ -199,7 +199,7 @@ GET    /api/projects/:id/image/:kind/:refId  → streams a persisted PNG (kind=c
 
 Every project route derives the user from the session cookie and checks
 `project.userId === user.id` before touching anything (AGENTS.md §7/§9).
-Step routes are idempotent under retry: calling the *current* step's route
+Step routes are idempotent under retry: calling the _current_ step's route
 while it's already `RUNNING` (and not stale) just returns the current state
 (409 with state payload) — it never fires Gemini twice.
 
@@ -276,7 +276,7 @@ if (claimed.count !== 1) return conflict(currentProjectState); // no Gemini call
   409 with the current running state; frontend just polls/reflects it.
 - **Stuck recovery:** if the server dies mid-call, `stepState` stays
   `RUNNING` forever unless claimed again. The `OR` clause above lets a
-  *user-triggered* retry reclaim a `RUNNING` row once `stepStartedAt` is
+  _user-triggered_ retry reclaim a `RUNNING` row once `stepStartedAt` is
   older than `STALE_MS` (proposed: 3 minutes, one constant for all steps —
   simple, documented, adjustable). The UI shows a distinct "This step looks
   stuck — Recover" affordance instead of a spinner once stale, computed
@@ -292,6 +292,7 @@ if (claimed.count !== 1) return conflict(currentProjectState); // no Gemini call
 Vitest + React Testing Library (AGENTS.md §6). Per the `testing` skill:
 
 **Backend** (mock `lib/gemini/service.ts`, never call the real API):
+
 - `lib/pipeline/state.ts` — pure unit tests: step ordering, cannot skip,
   cannot restart a completed step, stale detection.
 - `lib/pipeline/run.ts` / step routes — integration tests against a real
@@ -304,6 +305,7 @@ Vitest + React Testing Library (AGENTS.md §6). Per the `testing` skill:
 
 **Frontend** (RTL, per `ux-ui`/`testing` skills — a handful of states, not
 exhaustive):
+
 - Stepper renders done/current/pending correctly at each stage.
 - Running state shows the specific step label, not bare "Loading...".
 - Failed step shows error + retry action.
@@ -311,9 +313,9 @@ exhaustive):
 - New-project form validation (no title / no text-or-file).
 - Empty project list vs. populated list.
 
-**Deliberately not tested:** Gemini output *quality*, visual/CSS regression,
+**Deliberately not tested:** Gemini output _quality_, visual/CSS regression,
 exact copy text — documented as such in `TESTING.md` with rationale.
-*Nice-to-have if time allows:* one mocked end-to-end happy-path integration
+_Nice-to-have if time allows:_ one mocked end-to-end happy-path integration
 test through all 5 steps.
 
 Test DB: a dedicated SQLite file reset between test runs (not the dev DB).
