@@ -13,7 +13,9 @@ export function ProjectList({ projects }: { projects: ProjectSummary[] }) {
             Paste or upload a book&apos;s text to start your first illustration pipeline.
           </p>
         </div>
-        <Button render={<Link href="/projects/new" />}>New project</Button>
+        <Button render={<Link href="/projects/new" />} nativeButton={false}>
+          New project
+        </Button>
       </div>
     );
   }

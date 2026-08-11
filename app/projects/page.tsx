@@ -13,7 +13,9 @@ export default async function ProjectsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Your projects</h1>
         {projects.length > 0 ? (
-          <Button render={<Link href="/projects/new" />}>New project</Button>
+          <Button render={<Link href="/projects/new" />} nativeButton={false}>
+            New project
+          </Button>
         ) : null}
       </div>
       <ProjectList projects={projects} />
