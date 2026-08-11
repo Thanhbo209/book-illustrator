@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Stepper } from "@/components/pipeline/Stepper";
+import { StyleStepPanel } from "@/components/pipeline/StyleStepPanel";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getProjectForUser } from "@/lib/storage/projects";
 
@@ -30,8 +31,9 @@ export default async function ProjectDetailPage({
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="flex flex-col gap-4 pt-6">
           <Stepper currentStep={project.currentStep} stepState={project.stepState} />
+          <StyleStepPanel project={project} />
         </CardContent>
       </Card>
 

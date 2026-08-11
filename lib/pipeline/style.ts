@@ -15,6 +15,25 @@ function toSafeErrorMessage(error: unknown): string {
   return "Style generation failed. Please try again.";
 }
 
+interface BookFile {
+  uri: string;
+  expiresAt: Date;
+}
+
+/** Re-uploads only if there's no file yet, or the existing one has expired (~48h). */
+async function resolveBookFile(
+  projectId: string,
+  existingUri: string | null,
+  existingExpiresAt: Date | null,
+): Promise<BookFile> {
+  if (existingUri && existingExpiresAt && existingExpiresAt.getTime() > Date.now()) {
+    return { uri: existingUri, expiresAt: existingExpiresAt };
+  }
+  const bookText = await readBookText(projectId);
+  const uploaded = await uploadBookText(bookText);
+  return { uri: uploaded.uri, expiresAt: uploaded.expiresAt };
+}
+
 /**
  * Runs the Style step to a terminal state (COMPLETED → advances to
  * CHARACTERS, or FAILED) and persists the outcome. Assumes the caller has
@@ -25,21 +44,14 @@ export async function runStyleStep(projectId: string, userStyle?: string): Promi
   try {
     const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
 
-    let bookFileUri = project.bookFileUri;
-    let bookFileExpiresAt = project.bookFileExpiresAt;
-
-    const needsUpload =
-      !bookFileUri || !bookFileExpiresAt || bookFileExpiresAt.getTime() <= Date.now();
-
-    if (needsUpload) {
-      const bookText = await readBookText(projectId);
-      const uploaded = await uploadBookText(bookText);
-      bookFileUri = uploaded.uri;
-      bookFileExpiresAt = uploaded.expiresAt;
-    }
+    const bookFile = await resolveBookFile(
+      projectId,
+      project.bookFileUri,
+      project.bookFileExpiresAt,
+    );
 
     const result = await generateStyle({
-      bookFileUri,
+      bookFileUri: bookFile.uri,
       bookFileMimeType: BOOK_MIME_TYPE,
       userStyle,
     });
@@ -47,8 +59,8 @@ export async function runStyleStep(projectId: string, userStyle?: string): Promi
     await completeStyleStep({
       projectId,
       style: result.style,
-      bookFileUri,
-      bookFileExpiresAt,
+      bookFileUri: bookFile.uri,
+      bookFileExpiresAt: bookFile.expiresAt,
       interactionId: result.interactionId,
     });
   } catch (error) {

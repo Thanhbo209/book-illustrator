@@ -3,7 +3,15 @@ import path from "node:path";
 // @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/storage/db";
-import { createProject, getProjectForUser, listProjectsForUser } from "@/lib/storage/projects";
+import {
+  claimStep,
+  completeStyleStep,
+  createProject,
+  failStep,
+  getProjectForUser,
+  listProjectsForUser,
+} from "@/lib/storage/projects";
+import { STALE_MS } from "@/lib/pipeline/state";
 
 describe("project storage", () => {
   const projectIds: string[] = [];
@@ -86,5 +94,105 @@ describe("project storage", () => {
   it("returns null for a nonexistent project id", async () => {
     const user = await createTestUser();
     await expect(getProjectForUser("does-not-exist", user.id)).resolves.toBeNull();
+  });
+
+  describe("claimStep", () => {
+    it("claims a fresh IDLE step and marks it RUNNING", async () => {
+      const user = await createTestUser();
+      const project = await createProject({ userId: user.id, title: "T", bookText: "text" });
+      projectIds.push(project.id);
+
+      await expect(claimStep(project.id, user.id, "STYLE")).resolves.toBe(true);
+
+      const detail = await getProjectForUser(project.id, user.id);
+      expect(detail?.stepState).toBe("RUNNING");
+    });
+
+    it("only lets one of two concurrent claims succeed", async () => {
+      const user = await createTestUser();
+      const project = await createProject({ userId: user.id, title: "T", bookText: "text" });
+      projectIds.push(project.id);
+
+      const [first, second] = await Promise.all([
+        claimStep(project.id, user.id, "STYLE"),
+        claimStep(project.id, user.id, "STYLE"),
+      ]);
+
+      expect([first, second].filter(Boolean)).toHaveLength(1);
+    });
+
+    it("refuses to claim a step that isn't current", async () => {
+      const user = await createTestUser();
+      const project = await createProject({ userId: user.id, title: "T", bookText: "text" });
+      projectIds.push(project.id);
+
+      await expect(claimStep(project.id, user.id, "CHARACTERS")).resolves.toBe(false);
+    });
+
+    it("refuses to claim a fresh RUNNING step", async () => {
+      const user = await createTestUser();
+      const project = await createProject({ userId: user.id, title: "T", bookText: "text" });
+      projectIds.push(project.id);
+
+      await claimStep(project.id, user.id, "STYLE");
+      await expect(claimStep(project.id, user.id, "STYLE")).resolves.toBe(false);
+    });
+
+    it("allows reclaiming a stale RUNNING step", async () => {
+      const user = await createTestUser();
+      const project = await createProject({ userId: user.id, title: "T", bookText: "text" });
+      projectIds.push(project.id);
+
+      const staleStart = new Date(Date.now() - STALE_MS - 1000);
+      await claimStep(project.id, user.id, "STYLE", staleStart);
+
+      await expect(claimStep(project.id, user.id, "STYLE")).resolves.toBe(true);
+    });
+
+    it("refuses to claim another user's project", async () => {
+      const owner = await createTestUser();
+      const intruder = await createTestUser();
+      const project = await createProject({ userId: owner.id, title: "T", bookText: "text" });
+      projectIds.push(project.id);
+
+      await expect(claimStep(project.id, intruder.id, "STYLE")).resolves.toBe(false);
+    });
+  });
+
+  describe("completeStyleStep / failStep", () => {
+    it("persists the style and advances to CHARACTERS", async () => {
+      const user = await createTestUser();
+      const project = await createProject({ userId: user.id, title: "T", bookText: "text" });
+      projectIds.push(project.id);
+      await claimStep(project.id, user.id, "STYLE");
+
+      await completeStyleStep({
+        projectId: project.id,
+        style: "Warm watercolor",
+        bookFileUri: "files/abc",
+        bookFileExpiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        interactionId: "int-1",
+      });
+
+      const detail = await getProjectForUser(project.id, user.id);
+      expect(detail?.style).toBe("Warm watercolor");
+      expect(detail?.currentStep).toBe("CHARACTERS");
+      expect(detail?.stepState).toBe("IDLE");
+      expect(detail?.stepError).toBeNull();
+    });
+
+    it("persists a failure without advancing the step", async () => {
+      const user = await createTestUser();
+      const project = await createProject({ userId: user.id, title: "T", bookText: "text" });
+      projectIds.push(project.id);
+      await claimStep(project.id, user.id, "STYLE");
+
+      await failStep(project.id, "Gemini quota exceeded");
+
+      const detail = await getProjectForUser(project.id, user.id);
+      expect(detail?.currentStep).toBe("STYLE");
+      expect(detail?.stepState).toBe("FAILED");
+      expect(detail?.stepError).toBe("Gemini quota exceeded");
+    });
   });
 });
