@@ -25,20 +25,6 @@ export type ParseCreateProjectResult =
   | { ok: false; message: string };
 
 /**
- * `instanceof File` is unreliable across realms (jsdom's File vs the
- * platform's, Node's undici File vs an edge runtime's) — duck-type instead.
- */
-function isUploadedFile(value: FormDataEntryValue | null): value is File {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { name?: unknown }).name === "string" &&
-    typeof (value as { size?: unknown }).size === "number" &&
-    typeof (value as { text?: unknown }).text === "function"
-  );
-}
-
-/**
  * Extracts and validates a new-project submission from multipart form data.
  * The user may paste text or upload a .txt file.
  * If both are provided, the uploaded file takes priority.
@@ -61,7 +47,7 @@ export async function parseCreateProjectForm(
 
   let rawText: string | null = null;
 
-  if (isUploadedFile(file) && file.size > 0) {
+  if (file instanceof File && file.size > 0) {
     if (!file.name.toLowerCase().endsWith(ALLOWED_BOOK_FILE_EXTENSION)) {
       return { ok: false, message: "Only .txt files are accepted" };
     }
