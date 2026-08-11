@@ -1,0 +1,93 @@
+// Prisma schema for the Book Illustrator pipeline.
+// See docs/plan.md §2 for the data-model rationale.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum PipelineStep {
+  STYLE
+  CHARACTERS
+  PORTRAITS
+  CHAPTERS
+  ILLUSTRATIONS
+  DONE
+}
+
+enum StepState {
+  IDLE
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  createdAt DateTime  @default(now())
+  projects  Project[]
+}
+
+model Project {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  title        String
+  bookTextPath String
+  createdAt    DateTime @default(now())
+
+  currentStep   PipelineStep @default(STYLE)
+  stepState     StepState    @default(IDLE)
+  stepStartedAt DateTime?
+  stepError     String?
+
+  style String?
+
+  // Gemini context-chaining bookkeeping (docs/plan.md §5)
+  bookFileUri       String?
+  bookFileExpiresAt DateTime?
+  lastInteractionId String?
+
+  characters Character[]
+  chapters   Chapter[]
+
+  @@index([userId])
+}
+
+model Character {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+  order     Int
+
+  name   String
+  prompt String
+
+  portraitPath  String?
+  portraitState StepState @default(IDLE)
+  portraitError String?
+
+  @@unique([projectId, order])
+}
+
+model Chapter {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+  order     Int
+
+  title  String
+  prompt String
+
+  illustrationPath  String?
+  illustrationState StepState @default(IDLE)
+  illustrationError String?
+
+  @@unique([projectId, order])
+}

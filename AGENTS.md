@@ -603,32 +603,95 @@ The default application structure is:
 book-illustrator/
 ├── .claude/
 │   └── skills/
+│       ├── testing/
+│       ├── ux-ui/
+│       ├── gemini-pipeline/
+│       ├── pipeline-state/
+│       └── ...
 ├── docs/
 │   ├── gradion-assessment-intern-software-engineer.md
 │   └── plan.md
+│
+├── app/
+│   ├── api/
+│   │   ├── auth/
+│   │   │   ├── login/
+│   │   │   │   └── route.ts
+│   │   │   └── logout/
+│   │   │       └── route.ts
+│   │   └── projects/
+│   │       ├── route.ts
+│   │       └── [projectId]/
+│   │           ├── route.ts
+│   │           ├── image/
+│   │           │   └── [kind]/
+│   │           │       └── [id]/
+│   │           │           └── route.ts
+│   │           └── steps/
+│   │               ├── style/
+│   │               │   └── route.ts
+│   │               ├── characters/
+│   │               │   └── route.ts
+│   │               ├── portraits/
+│   │               │   └── route.ts
+│   │               ├── chapters/
+│   │               │   └── route.ts
+│   │               └── illustrations/
+│   │                   └── route.ts
+│   │
+│   ├── login/
+│   │   └── page.tsx
+│   │
+│   ├── projects/
+│   │   ├── page.tsx
+│   │   ├── new/
+│   │   │   └── page.tsx
+│   │   └── [projectId]/
+│   │       └── page.tsx
+│   │
+│   ├── layout.tsx
+│   └── page.tsx
+│
+├── components/
+│   ├── ui/
+│   ├── identity/
+│   ├── projects/
+│   └── pipeline/
+│
+├── lib/
+│   ├── auth/
+│   ├── gemini/
+│   ├── pipeline/
+│   ├── storage/
+│   └── validation/
+│
+├── types/
+│
 ├── prisma/
 │   └── schema.prisma
+│
+├── data/
+│   └── projects/
+│       └── <project-id>/
+│           ├── book.txt
+│           ├── characters/
+│           │   ├── 1.png
+│           │   └── 2.png
+│           └── chapters/
+│               └── 1.png
+│
 ├── public/
-├── src/
-│   ├── app/
-│   │   ├── api/
-│   │   ├── projects/
-│   │   ├── login/
-│   │   └── ...
-│   ├── components/
-│   ├── lib/
-│   │   ├── gemini/
-│   │   ├── pipeline/
-│   │   ├── storage/
-│   │   ├── validation/
-│   │   └── ...
-│   └── types/
+│
 ├── tests/
+│   ├── backend/
+│   └── frontend/
+│
 ├── AGENTS.md
 ├── DECISIONS.md
 ├── README.md
 ├── TESTING.md
 ├── .env.example
+├── .gitignore
 ├── package.json
 └── ...
 ```
