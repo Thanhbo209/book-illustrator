@@ -1152,6 +1152,91 @@ Log useful server-side diagnostic information without exposing secrets or sensit
 
 ---
 
+# 10. Prompt Artifacts
+
+Prompt artifacts are evidence of meaningful implementation work, not a
+transcript of every conversation.
+
+## Workflow
+
+After completing a meaningful feature, flow, architectural change, or
+substantial refactor:
+
+1. Summarize what was implemented.
+2. Run the relevant checks.
+3. Explain any important decisions, assumptions, or AI overrides.
+4. Ask the user whether the finalized implementation prompt should be saved.
+5. Only after the user approves, create the prompt file under `prompts/`.
+
+Do not create prompt files automatically without user approval.
+
+A meaningful task includes changes to:
+
+- application architecture
+- API routes
+- database/storage
+- authentication
+- Gemini integration
+- pipeline/state management
+- UI/UX flows
+- testing infrastructure
+- security
+- major refactors
+
+Do not create prompt artifacts for:
+
+- casual questions
+- explanations
+- simple debugging
+- Git commands
+- minor typo fixes
+- trivial code changes
+- general discussion
+
+## Prompt File Format
+
+Each approved prompt artifact must include:
+
+- Goal
+- Skills read
+- Existing code inspected
+- Decisions or assumptions
+- Files likely to change
+- Implementation requirements
+- Security requirements
+- Acceptance criteria
+- Checks to run
+- Exact manual test steps
+
+For UI tasks, also include:
+
+- visual interpretation
+- layout
+- typography
+- spacing
+- colors
+- responsiveness
+- interaction states
+- accessibility
+- visual fidelity expectations
+
+Use sequential numbering and descriptive filenames:
+
+```text
+prompts/
+├── 001-project-foundation.md
+├── 002-identity-authentication.md
+├── 003-project-creation.md
+└── ...
+```
+
+Never create fake or retroactive prompt artifacts.
+
+Never store secrets, API keys, credentials, or private information in prompt
+files.
+
+---
+
 # Final Principle
 
 The assessment specification is the source of truth.
