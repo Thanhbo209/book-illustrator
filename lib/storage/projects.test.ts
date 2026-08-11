@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/storage/db";
 import {
   claimStep,
+  completeCharactersStep,
   completeStyleStep,
   createProject,
   failStep,
@@ -193,6 +194,75 @@ describe("project storage", () => {
       expect(detail?.currentStep).toBe("STYLE");
       expect(detail?.stepState).toBe("FAILED");
       expect(detail?.stepError).toBe("Gemini quota exceeded");
+    });
+  });
+
+  describe("completeCharactersStep", () => {
+    it("persists ordered character rows and advances to PORTRAITS", async () => {
+      const user = await createTestUser();
+      const project = await createProject({ userId: user.id, title: "T", bookText: "text" });
+      projectIds.push(project.id);
+      await claimStep(project.id, user.id, "STYLE");
+      await completeStyleStep({
+        projectId: project.id,
+        style: "Watercolor",
+        bookFileUri: "files/abc",
+        bookFileExpiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        interactionId: "int-style",
+      });
+      await claimStep(project.id, user.id, "CHARACTERS");
+
+      await completeCharactersStep({
+        projectId: project.id,
+        characters: [
+          { name: "Mole", prompt: "a small mole" },
+          { name: "Rat", prompt: "a water rat" },
+        ],
+        interactionId: "int-characters",
+      });
+
+      const detail = await getProjectForUser(project.id, user.id);
+      expect(detail?.currentStep).toBe("PORTRAITS");
+      expect(detail?.stepState).toBe("IDLE");
+      expect(detail?.characters).toHaveLength(2);
+      expect(detail?.characters[0]).toMatchObject({ order: 1, name: "Mole", prompt: "a small mole" });
+      expect(detail?.characters[1]).toMatchObject({ order: 2, name: "Rat", prompt: "a water rat" });
+    });
+
+    it("overwrites any existing character rows rather than duplicating them", async () => {
+      const user = await createTestUser();
+      const project = await createProject({ userId: user.id, title: "T", bookText: "text" });
+      projectIds.push(project.id);
+      await claimStep(project.id, user.id, "STYLE");
+      await completeStyleStep({
+        projectId: project.id,
+        style: "Watercolor",
+        bookFileUri: "files/abc",
+        bookFileExpiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        interactionId: "int-style",
+      });
+      await claimStep(project.id, user.id, "CHARACTERS");
+      await completeCharactersStep({
+        projectId: project.id,
+        characters: [{ name: "First Attempt", prompt: "stale data" }],
+        interactionId: "int-1",
+      });
+
+      // Simulate a retry overwriting the first attempt's rows.
+      await prisma.project.update({
+        where: { id: project.id },
+        data: { currentStep: "CHARACTERS", stepState: "IDLE" },
+      });
+      await claimStep(project.id, user.id, "CHARACTERS");
+      await completeCharactersStep({
+        projectId: project.id,
+        characters: [{ name: "Mole", prompt: "a small mole" }],
+        interactionId: "int-2",
+      });
+
+      const detail = await getProjectForUser(project.id, user.id);
+      expect(detail?.characters).toHaveLength(1);
+      expect(detail?.characters[0].name).toBe("Mole");
     });
   });
 });
