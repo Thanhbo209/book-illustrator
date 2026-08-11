@@ -68,6 +68,8 @@ The implementation must follow the pipeline described in:
 
 and Google's referenced **Book Illustration** notebook.
 
+> https://colab.research.google.com/github/google-gemini/cookbook/blob/main/examples/Book_illustration.ipynb
+
 Do not invent a different AI pipeline.
 
 ## Core features
@@ -434,6 +436,99 @@ The exact organization may differ if existing project skills provide equivalent 
 - Only create a new skill when there is a genuine reusable project capability that is not covered by the existing skills.
 - Keep skills focused and actionable.
 - Skills must describe project-specific engineering rules, not generic programming knowledge.
+
+### Next.js Version & App Router
+
+- Use Next.js with the App Router.
+- Use TypeScript throughout the application.
+- Prefer Server Components by default.
+- Use Client Components ("use client") only when the component requires:
+- React state or effects
+- Browser APIs
+- Event handlers requiring client-side interactivity
+- Client-side polling or UI transitions
+- Do not add "use client" to a component just because it renders dynamic data.
+- Keep server-only logic out of Client Components.
+- Never expose GEMINI_API_KEY or other server secrets to the browser.
+
+### TypeScript
+
+- Use strict TypeScript.
+- Do not use `any` unless there is a documented technical reason.
+- Prefer explicit domain types over loosely typed objects.
+- Define shared types for:
+  - User
+  - Project
+  - Pipeline step
+  - Pipeline state
+  - Character
+  - Chapter
+  - API responses
+  - API errors
+- Keep API request/response types consistent between frontend and backend logic.
+- Use discriminated unions for states where appropriate instead of unrelated boolean flags.
+
+Example:
+
+```ts
+type PipelineStep =
+  | "STYLE"
+  | "CHARACTERS"
+  | "PORTRAITS"
+  | "CHAPTERS"
+  | "ILLUSTRATIONS";
+
+type StepState = "IDLE" | "RUNNING" | "COMPLETED" | "FAILED";
+```
+
+Avoid state models such as:
+
+```ts
+isLoading: boolean;
+isStyleDone: boolean;
+isCharactersDone: boolean;
+isPortraitsDone: boolean;
+```
+
+unless there is a concrete reason.
+
+## Component Boundaries
+
+Prefer this structure:
+
+```text
+app/
+├── layout.tsx
+├── page.tsx
+├── login/
+│   └── page.tsx
+├── projects/
+│   ├── page.tsx
+│   ├── new/
+│   │   └── page.tsx
+│   └── [projectId]/
+│       └── page.tsx
+└── api/
+    ├── users/
+    └── projects/
+
+components/
+├── ui/
+├── identity/
+├── projects/
+└── pipeline/
+
+lib/
+├── gemini/
+├── storage/
+├── pipeline/
+├── validation/
+└── auth/
+```
+
+Do not create abstractions merely because they look architecturally clean.
+
+Create a new abstraction when it removes real duplication or isolates a meaningful responsibility.
 
 ---
 
