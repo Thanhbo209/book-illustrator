@@ -365,22 +365,12 @@ Test DB: a dedicated SQLite file reset between test runs (not the dev DB).
 
 ## Conflicts, risks, and decisions
 
-1. ~~Notebook not yet run~~ — superseded: Gemini mechanics were verified
-   live against the real REST API (§5) before `lib/gemini/client.ts` was
-   written. The notebook itself still hasn't been run by either side;
-   flag it if a notebook run surfaces something the live test didn't
-   catch. One real gap remains: the image-generation *output* shape is
-   unverified (0 free-tier quota on every image model) — isolated behind
-   `lib/gemini/imageResponse.ts` with strict runtime validation.
-2. **`app/` at root vs. `src/app/`** — AGENTS.md §5 diagrams a `src/` tree;
+1. **`app/` at root vs. `src/app/`** — AGENTS.md §5 diagrams a `src/` tree;
    the actual scaffold is root-level. Keeping root-level (matches what
    exists, zero-value migration).
-3. **Derived `status` vs. stored `status` field** — AGENTS.md's own
+2. **Derived `status` vs. stored `status` field** — AGENTS.md's own
    DECISIONS.md example stores `status` separately from `step_state` and
    accepts a sync cost. Deriving it instead (one less field, no sync to get
    wrong). Functionally equivalent; diverges from the example in the
    governance doc.
-4. **Stale-step threshold** — one constant, 3 minutes, for all steps.
-5. ~~Model IDs~~ — confirmed live via `GET /v1beta/models`:
-   `gemini-3.6-flash` (text) and `gemini-3.1-flash-image` (image) both
-   exist and are current, not hallucinated.
+3. **Stale-step threshold** — one constant, 3 minutes, for all steps.
