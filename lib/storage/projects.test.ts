@@ -1,5 +1,6 @@
 import { rm } from "node:fs/promises";
 import path from "node:path";
+// @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/storage/db";
 import { createProject, getProjectForUser, listProjectsForUser } from "@/lib/storage/projects";

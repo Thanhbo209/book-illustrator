@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { canClaim, deriveProjectStatus, isStale, nextStep, STALE_MS } from "@/lib/pipeline/state";
 
