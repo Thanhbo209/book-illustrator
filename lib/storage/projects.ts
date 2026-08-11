@@ -2,9 +2,10 @@ import "server-only";
 
 import { prisma } from "@/lib/storage/db";
 import { readBookText, writeBookText } from "@/lib/storage/files";
-import { deriveProjectStatus, isStale } from "@/lib/pipeline/state";
+import { deriveProjectStatus, isStale, STALE_MS } from "@/lib/pipeline/state";
 import type { CharacterModel, ChapterModel, ProjectModel } from "@/lib/generated/prisma/models";
 import type { CharacterDTO, ChapterDTO, ProjectDetail, ProjectSummary } from "@/types/domain";
+import type { PipelineStep } from "@/types/pipeline";
 
 function toCharacterDTO(character: CharacterModel): CharacterDTO {
   return {
@@ -110,4 +111,64 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectS
   });
 
   return toProjectSummary(updated);
+}
+
+/**
+ * Atomically claims a step for execution: succeeds only if the project is
+ * currently on `step` and that step is IDLE, FAILED, or a stale RUNNING
+ * (server died mid-call). A second concurrent request — double-click,
+ * refresh, second tab — matches nothing and gets count 0, so it never
+ * triggers a duplicate Gemini call.
+ */
+export async function claimStep(
+  projectId: string,
+  userId: string,
+  step: PipelineStep,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const staleCutoff = new Date(now.getTime() - STALE_MS);
+  const result = await prisma.project.updateMany({
+    where: {
+      id: projectId,
+      userId,
+      currentStep: step,
+      OR: [
+        { stepState: { in: ["IDLE", "FAILED"] } },
+        { stepState: "RUNNING", stepStartedAt: { lt: staleCutoff } },
+      ],
+    },
+    data: { stepState: "RUNNING", stepStartedAt: now, stepError: null },
+  });
+  return result.count === 1;
+}
+
+export interface CompleteStyleStepInput {
+  projectId: string;
+  style: string;
+  bookFileUri: string;
+  bookFileExpiresAt: Date;
+  interactionId: string;
+}
+
+export async function completeStyleStep(input: CompleteStyleStepInput): Promise<void> {
+  await prisma.project.update({
+    where: { id: input.projectId },
+    data: {
+      style: input.style,
+      bookFileUri: input.bookFileUri,
+      bookFileExpiresAt: input.bookFileExpiresAt,
+      lastInteractionId: input.interactionId,
+      currentStep: "CHARACTERS",
+      stepState: "IDLE",
+      stepStartedAt: null,
+      stepError: null,
+    },
+  });
+}
+
+export async function failStep(projectId: string, message: string): Promise<void> {
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { stepState: "FAILED", stepError: message, stepStartedAt: null },
+  });
 }
