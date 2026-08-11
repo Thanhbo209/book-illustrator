@@ -6,6 +6,7 @@ import { deriveProjectStatus, isStale, STALE_MS } from "@/lib/pipeline/state";
 import type { CharacterModel, ChapterModel, ProjectModel } from "@/lib/generated/prisma/models";
 import type { CharacterDTO, ChapterDTO, ProjectDetail, ProjectSummary } from "@/types/domain";
 import type { PipelineStep } from "@/types/pipeline";
+import type { CharacterOutput } from "@/lib/validation/gemini";
 
 function toCharacterDTO(character: CharacterModel): CharacterDTO {
   return {
@@ -164,6 +165,38 @@ export async function completeStyleStep(input: CompleteStyleStepInput): Promise<
       stepError: null,
     },
   });
+}
+
+export interface CompleteCharactersStepInput {
+  projectId: string;
+  characters: CharacterOutput[];
+  interactionId: string;
+}
+
+export async function completeCharactersStep(input: CompleteCharactersStepInput): Promise<void> {
+  await prisma.$transaction([
+    // Defensive: clears out any stale rows from an earlier partial attempt
+    // before writing the current, validated set.
+    prisma.character.deleteMany({ where: { projectId: input.projectId } }),
+    prisma.character.createMany({
+      data: input.characters.map((character, index) => ({
+        projectId: input.projectId,
+        order: index + 1,
+        name: character.name,
+        prompt: character.prompt,
+      })),
+    }),
+    prisma.project.update({
+      where: { id: input.projectId },
+      data: {
+        lastInteractionId: input.interactionId,
+        currentStep: "PORTRAITS",
+        stepState: "IDLE",
+        stepStartedAt: null,
+        stepError: null,
+      },
+    }),
+  ]);
 }
 
 export async function failStep(projectId: string, message: string): Promise<void> {

@@ -83,7 +83,7 @@ export async function generateCharacters(params: {
   const response = await createInteraction({
     model: textModel,
     input:
-      "List the main adult characters from this book (at most two), each with a name and a detailed image-generation prompt describing their appearance, suitable for an illustrator. Adults only — do not include children.",
+      "List the main adult characters from this book (at most two), each with a name and a detailed image-generation prompt describing their appearance, suitable for an illustrator. Each prompt should be at least 50 words. Adults only — do not include children.",
     previousInteractionId: params.previousInteractionId,
     responseSchema: toGeminiSchema(charactersResponseSchema),
   });
