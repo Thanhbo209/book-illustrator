@@ -41,3 +41,11 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# sqlite databases (local, regenerated via prisma migrate)
+*.db
+*.db-journal
+
+# local project data (uploaded book text, generated images)
+/data/
+
