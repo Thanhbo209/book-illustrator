@@ -8,6 +8,7 @@ import {
 } from "@/lib/gemini/client";
 import { getGeminiConfig } from "@/lib/gemini/config";
 import { GeminiResponseShapeError } from "@/lib/gemini/errors";
+import { IMAGE_SYSTEM_INSTRUCTIONS } from "@/lib/gemini/imageInstructions";
 import { parseGeneratedImage, type GeneratedImage } from "@/lib/gemini/imageResponse";
 import {
   chaptersResponseSchema,
@@ -101,17 +102,20 @@ export interface PortraitResult {
   interactionId: string;
 }
 
+// Independent call, not chained (see DECISIONS.md "Image generation:
+// independent calls, no persisted interaction chain"): style + the
+// character's own prompt are already persisted and cheap to include
+// directly, so there's nothing a chain would add here.
 export async function generatePortrait(params: {
   character: { name: string; prompt: string };
   style: string;
-  previousInteractionId: string;
 }): Promise<PortraitResult> {
   const { imageModel } = getGeminiConfig();
 
   const response = await createInteraction({
     model: imageModel,
     input: `Create a character portrait illustration of ${params.character.name}. ${params.character.prompt} Art style: ${params.style}`,
-    previousInteractionId: params.previousInteractionId,
+    systemInstruction: IMAGE_SYSTEM_INSTRUCTIONS,
   });
 
   return { image: parseGeneratedImage(response), interactionId: response.id };
@@ -152,11 +156,13 @@ export interface IllustrationResult {
   interactionId: string;
 }
 
+// Independent call, not chained — same reasoning as generatePortrait().
+// Character consistency comes from the explicit reference images below,
+// not from conversational memory of a prior interaction.
 export async function generateIllustration(params: {
   chapter: { title: string; prompt: string };
   style: string;
   characterPortraits: { name: string; data: string; mimeType: string }[];
-  previousInteractionId: string;
 }): Promise<IllustrationResult> {
   const { imageModel } = getGeminiConfig();
 
@@ -183,7 +189,7 @@ export async function generateIllustration(params: {
   const response = await createInteraction({
     model: imageModel,
     input,
-    previousInteractionId: params.previousInteractionId,
+    systemInstruction: IMAGE_SYSTEM_INSTRUCTIONS,
   });
 
   return { image: parseGeneratedImage(response), interactionId: response.id };

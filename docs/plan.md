@@ -207,46 +207,60 @@ while it's already `RUNNING` (and not stale) just returns the current state
 
 ## 5. Gemini integration & context reuse
 
-Per the notebook + current `ai.google.dev` docs, the pipeline uses the
-**Interactions API** (the "newest conversation API" the assessment
-references, REST-first since only Python/JS SDKs wrap it):
+The pipeline uses the **Interactions API** (the "newest conversation API"
+the assessment references, REST-first since only Python/JS SDKs wrap it).
+Mechanics below were confirmed with a live smoke test against the real
+API on 2026-08-11 (curl, not the notebook — the notebook still hadn't
+been run by either side at that point):
 
-- **Book upload (once):** `POST .../upload/v1beta/files` (resumable) with
-  `book.txt` → `file.uri`. Files expire (~48h); store `bookFileUri` +
-  `bookFileExpiresAt` on `Project`. If a later step needs book context and
-  the file has expired, transparently re-upload from the persisted
-  `data/projects/<id>/book.txt` before continuing — the user never sees this.
-- **Context chaining:** each step calls `interactions.create` with
-  `previous_interaction_id` set to the project's `lastInteractionId`
-  (initially the book-upload interaction), and stores the new interaction's
-  id back as `lastInteractionId`. This means the book text is sent to
-  Gemini exactly once; every later step references it by chain, not by
-  resending content — satisfying AGENTS.md §8 "context reuse."
-- **Structured output:** Characters and Chapters steps request JSON via a
-  schema (Zod schema defined in `lib/validation/gemini.ts`, mirrored as the
-  JSON schema sent to Gemini). Response is parsed and **re-validated with
-  Zod** before persistence — malformed output is rejected, not trusted.
+- **Book upload (once):** `POST /upload/v1beta/files` (resumable) with
+  `book.txt` → `file.uri`. Verified live: files expire in ~48h; store
+  `bookFileUri` + `bookFileExpiresAt` on `Project`. If a later step needs
+  book context and the file has expired, transparently re-upload from the
+  persisted `data/projects/<id>/book.txt` before continuing.
+- **Referencing the file:** `{"type": "document", "uri": <file.uri>,
+  "mime_type": <file.mimeType>}` as an `input` item — confirmed live
+  (field is `uri`, not `file_uri`, which was the first, wrong guess).
+- **Context chaining:** Step 1 (Style) is the interaction that includes
+  the document reference; its `id` becomes `lastInteractionId`. Every
+  later step passes `previous_interaction_id: lastInteractionId` and
+  stores the new interaction's `id` back — confirmed live that a later
+  call correctly recalls information from an earlier one without it
+  being resent, and that chaining + structured output work together in
+  the same call.
+- **Structured output:** `response_format` is the **raw JSON Schema**
+  directly (confirmed live — an OpenAI-style wrapped shape was rejected).
+  `lib/validation/gemini.ts` defines the schema once with Zod and derives
+  the Gemini-facing schema via `z.toJSONSchema()` (Zod v4), so there's no
+  hand-duplicated copy to drift. The response is parsed and
+  **re-validated with the same Zod schema** before persistence —
+  malformed or out-of-bounds output (e.g. 3 characters) is rejected, not
+  trusted or silently truncated.
 - **Models:** text = `gemini-3.6-flash`, image = `gemini-3.1-flash-image`
-  (current Nano Banana family per docs), both from env vars
-  (`GEMINI_TEXT_MODEL`, `GEMINI_IMAGE_MODEL`) — never hardcoded inline.
-- **Portrait reuse for illustrations:** the two persisted portrait images
-  are read from disk, base64-encoded, and passed as image inputs alongside
-  the chapter prompt when generating the chapter illustration, so character
-  appearance stays consistent.
+  — both real, current model IDs (confirmed via `GET /v1beta/models`),
+  read from env vars (`GEMINI_TEXT_MODEL`, `GEMINI_IMAGE_MODEL`), never
+  hardcoded inline.
+- **Portrait reuse for illustrations:** persisted portrait images are
+  read from disk, base64-encoded, and passed as `{"type": "image",
+  "data": ..., "mime_type": ...}` input items alongside the chapter
+  prompt. This exact input shape was verified live against the text
+  model (which also accepts vision input).
+- **Image generation output — unverified:** every image model
+  (`gemini-3.1-flash-image`, `gemini-2.5-flash-image`,
+  `gemini-3.1-flash-lite-image`) returned a hard `quota exceeded ...
+  limit: 0` on the free tier during verification — not transient. The
+  output shape is inferred (symmetric with the verified input shape:
+  `{"type": "image", "data", "mime_type"}` in the `model_output` step)
+  but not confirmed against a real response. `lib/gemini/imageResponse.ts`
+  isolates this behind `parseGeneratedImage()`, which validates the shape
+  strictly and throws a specific, diagnosable `GeminiResponseShapeError`
+  if it's wrong, rather than trusting the assumption. **Needs the
+  developer to resolve the image quota (likely: enable billing) before
+  Portraits/Illustrations can be exercised for real.**
 - **Boundary:** all of this lives in `lib/gemini/client.ts` (raw REST calls)
   and `lib/gemini/service.ts` (the 5 pipeline-shaped functions). Route
   handlers call `service.ts` only — never construct Gemini requests inline.
   `service.ts` is the single seam mocked in tests.
-
-**Risk flag (Decision 1):** the AI could not execute the Colab notebook (no
-Python/Colab access), and the developer had not yet run it as of plan
-approval. The mechanics above come from current REST docs, not from
-watching the notebook execute, so exact field names (`previous_interaction_id`,
-exact `input` item shapes, exact response paths for generated images) are a
-best reading, not verified against real output. Before `lib/gemini/client.ts`
-is wired into any route, a live curl smoke test against the real endpoints
-confirms exact shapes; the developer is running the notebook in parallel and
-will correct this section if it diverges from what the notebook actually does.
 
 ---
 
@@ -351,10 +365,13 @@ Test DB: a dedicated SQLite file reset between test runs (not the dev DB).
 
 ## Conflicts, risks, and decisions
 
-1. **Notebook not yet run** (§5) — the developer had not run the Colab
-   notebook as of plan approval; proceeding on REST-docs mechanics plus a
-   pre-wiring curl smoke test, to be corrected once the notebook run
-   happens.
+1. ~~Notebook not yet run~~ — superseded: Gemini mechanics were verified
+   live against the real REST API (§5) before `lib/gemini/client.ts` was
+   written. The notebook itself still hasn't been run by either side;
+   flag it if a notebook run surfaces something the live test didn't
+   catch. One real gap remains: the image-generation *output* shape is
+   unverified (0 free-tier quota on every image model) — isolated behind
+   `lib/gemini/imageResponse.ts` with strict runtime validation.
 2. **`app/` at root vs. `src/app/`** — AGENTS.md §5 diagrams a `src/` tree;
    the actual scaffold is root-level. Keeping root-level (matches what
    exists, zero-value migration).
@@ -364,6 +381,6 @@ Test DB: a dedicated SQLite file reset between test runs (not the dev DB).
    wrong). Functionally equivalent; diverges from the example in the
    governance doc.
 4. **Stale-step threshold** — one constant, 3 minutes, for all steps.
-5. **Model IDs** (`gemini-3.6-flash`, `gemini-3.1-flash-image`) — read from
-   current docs, not hardcoded from memory; will be re-confirmed at
-   implementation time and recorded with rationale in `DECISIONS.md`.
+5. ~~Model IDs~~ — confirmed live via `GET /v1beta/models`:
+   `gemini-3.6-flash` (text) and `gemini-3.1-flash-image` (image) both
+   exist and are current, not hallucinated.

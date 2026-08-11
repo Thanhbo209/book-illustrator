@@ -31,6 +31,7 @@ describe("createInteraction", () => {
       input: "hello",
       previousInteractionId: "prev-1",
       responseSchema: { type: "object" },
+      systemInstruction: "Be concise.",
     });
 
     expect(result.id).toBe("abc");
@@ -43,6 +44,7 @@ describe("createInteraction", () => {
       input: "hello",
       previous_interaction_id: "prev-1",
       response_format: { type: "object" },
+      system_instruction: "Be concise.",
     });
   });
 

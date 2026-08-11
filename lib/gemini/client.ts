@@ -40,6 +40,8 @@ export interface CreateInteractionParams {
   previousInteractionId?: string;
   /** Raw JSON Schema — see lib/validation/gemini.ts's toGeminiSchema(). */
   responseSchema?: Record<string, unknown>;
+  /** Verified live as a real top-level field, not SDK sugar. */
+  systemInstruction?: string;
 }
 
 interface GeminiErrorBody {
@@ -60,6 +62,9 @@ export async function createInteraction(
   }
   if (params.responseSchema) {
     body.response_format = params.responseSchema;
+  }
+  if (params.systemInstruction) {
+    body.system_instruction = params.systemInstruction;
   }
 
   const response = await fetch(`${API_BASE}/v1beta/interactions`, {

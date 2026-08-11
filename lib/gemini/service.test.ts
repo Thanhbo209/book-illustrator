@@ -159,17 +159,19 @@ describe("generateChapters", () => {
 });
 
 describe("generatePortrait", () => {
-  it("returns the generated image and interaction id", async () => {
+  it("returns the generated image and interaction id, without chaining", async () => {
     createInteractionMock.mockResolvedValue(imageResponse("aGVsbG8=", "image/png"));
 
     const result = await generatePortrait({
       character: { name: "Mole", prompt: "a small mole" },
       style: "watercolor",
-      previousInteractionId: "characters-int",
     });
 
     expect(result.image).toEqual({ data: "aGVsbG8=", mimeType: "image/png" });
     expect(result.interactionId).toBe("int-img");
+    const call = createInteractionMock.mock.calls[0][0];
+    expect(call.previousInteractionId).toBeUndefined();
+    expect(call.systemInstruction).toBeTruthy();
   });
 
   it("propagates a shape error if Gemini doesn't return an image", async () => {
@@ -178,25 +180,25 @@ describe("generatePortrait", () => {
       generatePortrait({
         character: { name: "Mole", prompt: "a mole" },
         style: "watercolor",
-        previousInteractionId: "x",
       }),
     ).rejects.toThrow(GeminiResponseShapeError);
   });
 });
 
 describe("generateIllustration", () => {
-  it("passes character portraits as image inputs alongside the chapter prompt", async () => {
+  it("passes character portraits as image inputs alongside the chapter prompt, without chaining", async () => {
     createInteractionMock.mockResolvedValue(imageResponse("aW1hZ2U=", "image/png"));
 
     const result = await generateIllustration({
       chapter: { title: "River Bank", prompt: "a picnic scene" },
       style: "watercolor",
       characterPortraits: [{ name: "Mole", data: "cG9ydHJhaXQ=", mimeType: "image/png" }],
-      previousInteractionId: "chapters-int",
     });
 
     expect(result.image.mimeType).toBe("image/png");
     const call = createInteractionMock.mock.calls[0][0];
+    expect(call.previousInteractionId).toBeUndefined();
+    expect(call.systemInstruction).toBeTruthy();
     const input = call.input as Array<{ type: string; data?: string }>;
     expect(input.some((item) => item.type === "image" && item.data === "cG9ydHJhaXQ=")).toBe(true);
   });
