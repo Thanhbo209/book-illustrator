@@ -34,10 +34,23 @@ export function Stepper({ currentStep, stepState, className }: StepperProps) {
         const status = statusFor(step, currentStep);
         const isFailed = status === "current" && stepState === "FAILED";
         const isRunning = status === "current" && stepState === "RUNNING";
+        const isFirst = index === 0;
+        const isLast = index === EXECUTABLE_STEPS.length - 1;
+        // A step is reached (connector leading into it is complete) once
+        // it's done or current — everything before "current" is done by
+        // definition of statusFor's monotonic ordering.
+        const isReached = status === "done" || status === "current";
+        // Connector segments live in the same row as the marker and are
+        // equal flex-1 widths on both sides, so the marker — and the
+        // label centered beneath the whole column — land on the same
+        // horizontal axis instead of drifting toward the connector line.
+        const connectorClass = (filled: boolean) =>
+          cn("h-px min-w-2 flex-1", filled ? "bg-primary" : "bg-border");
 
         return (
-          <li key={step} className="flex flex-1 flex-col items-center gap-2 last:flex-none">
+          <li key={step} className="flex flex-1 flex-col items-center gap-1.5">
             <div className="flex w-full items-center">
+              <div className={isFirst ? "flex-1" : connectorClass(isReached)} />
               <div
                 aria-current={status === "current" ? "step" : undefined}
                 className={cn(
@@ -52,25 +65,28 @@ export function Stepper({ currentStep, stepState, className }: StepperProps) {
               >
                 {status === "done" ? <Check className="size-4" /> : index + 1}
               </div>
-              {index < EXECUTABLE_STEPS.length - 1 ? (
-                <div
-                  className={cn(
-                    "mx-1 h-px flex-1",
-                    status === "done" ? "bg-primary" : "bg-border",
-                  )}
-                />
-              ) : null}
+              <div className={isLast ? "flex-1" : connectorClass(status === "done")} />
             </div>
             <span
               className={cn(
-                "text-xs",
-                status === "current" ? "font-medium text-foreground" : "text-muted-foreground",
+                "max-w-full truncate px-0.5 text-center text-[11px] leading-tight sm:text-xs",
+                isFailed && "font-medium text-destructive",
+                !isFailed && status === "current" && "font-medium text-foreground",
+                !isFailed && status !== "current" && "text-muted-foreground",
               )}
             >
               {STEP_TITLES[step]}
-              {isRunning ? " · running" : null}
-              {isFailed ? " · failed" : null}
             </span>
+            {isRunning || isFailed ? (
+              <span
+                className={cn(
+                  "text-[10px] leading-none",
+                  isFailed ? "text-destructive" : "text-muted-foreground",
+                )}
+              >
+                {isFailed ? "Failed" : "Running"}
+              </span>
+            ) : null}
           </li>
         );
       })}

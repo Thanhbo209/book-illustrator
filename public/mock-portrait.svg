@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320" width="480" height="320" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id="mp-sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F8ECD9"/>
+      <stop offset="55%" stop-color="#EFC9A9"/>
+      <stop offset="100%" stop-color="#D9A0AE"/>
+    </linearGradient>
+    <linearGradient id="mp-hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#C98A72"/>
+      <stop offset="100%" stop-color="#B87868"/>
+    </linearGradient>
+    <radialGradient id="mp-glow" cx="50%" cy="42%" r="55%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="480" height="320" fill="url(#mp-sky)"/>
+  <rect width="480" height="320" fill="url(#mp-glow)"/>
+
+  <circle cx="404" cy="58" r="34" fill="#FFFFFF" opacity="0.28"/>
+  <circle cx="60" cy="240" r="10" fill="#FFFFFF" opacity="0.3"/>
+  <circle cx="90" cy="70" r="6" fill="#FFFFFF" opacity="0.35"/>
+
+  <path d="M0,272 C90,240 150,296 240,268 C330,240 400,290 480,258 L480,320 L0,320 Z" fill="url(#mp-hill)" opacity="0.55"/>
+
+  <path d="M164,150 C142,164 128,210 122,320 L358,320 C352,210 338,164 316,150 C290,196 190,196 164,150 Z" fill="#6E4B66"/>
+  <circle cx="240" cy="146" r="58" fill="#7C5372"/>
+  <path d="M182,120 C182,78 206,50 240,50 C274,50 298,78 298,120 C284,96 258,86 240,86 C222,86 196,96 182,120 Z" fill="#5B3C56"/>
+  <ellipse cx="216" cy="132" rx="16" ry="11" fill="#FFFFFF" opacity="0.18"/>
+
+  <path d="M96,300 C104,276 128,266 148,272 C132,282 122,296 120,314 Z" fill="#9CAF88" opacity="0.65"/>
+  <path d="M384,300 C376,276 352,266 332,272 C348,282 358,296 360,314 Z" fill="#9CAF88" opacity="0.65"/>
+</svg>

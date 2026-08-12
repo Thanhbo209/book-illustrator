@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { PortraitsStepPanel } from "@/components/pipeline/PortraitsStepPanel";
 import type { ProjectDetail } from "@/types/domain";
 
@@ -80,7 +80,9 @@ describe("PortraitsStepPanel", () => {
     await vi.advanceTimersByTimeAsync(3000);
     expect(refresh).toHaveBeenCalled();
 
-    resolveFetch(new Response(JSON.stringify({ project: project() }), { status: 200 }));
-    await vi.runOnlyPendingTimersAsync();
+    await act(async () => {
+      resolveFetch(new Response(JSON.stringify({ project: project() }), { status: 200 }));
+      await vi.runOnlyPendingTimersAsync();
+    });
   });
 });

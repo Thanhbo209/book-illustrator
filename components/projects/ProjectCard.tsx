@@ -25,11 +25,11 @@ export function ProjectCard({ project }: { project: ProjectSummary }) {
   });
 
   return (
-    <Link href={`/projects/${project.id}`}>
-      <Card className="transition-colors hover:bg-muted/50">
+    <Link href={`/projects/${project.id}`} className="block h-full">
+      <Card className="h-full justify-between transition-colors hover:bg-muted/50">
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
-            <CardTitle className="line-clamp-1">{project.title}</CardTitle>
+            <CardTitle className="line-clamp-1 text-lg font-semibold">{project.title}</CardTitle>
             <Badge variant={STATUS_VARIANT[project.status]}>{STATUS_LABEL[project.status]}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">Created {createdAt}</p>

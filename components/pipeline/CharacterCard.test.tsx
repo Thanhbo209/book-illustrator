@@ -17,19 +17,22 @@ function character(overrides: Partial<CharacterDTO> = {}): CharacterDTO {
 }
 
 describe("CharacterCard", () => {
-  it("shows a generating indicator while the portrait is RUNNING", () => {
+  it("shows a generating indicator while the portrait is RUNNING, with the mock portrait as the visual", () => {
     render(<CharacterCard character={character({ portraitState: "RUNNING" })} />);
     expect(screen.getByText("Generating...")).toBeInTheDocument();
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Placeholder portrait for Mole" })).toBeInTheDocument();
   });
 
-  it("shows the failure badge and message when the portrait FAILED", () => {
+  it("shows the failure badge, the mock portrait, and a secondary error message when the portrait FAILED", () => {
     render(
       <CharacterCard
         character={character({ portraitState: "FAILED", portraitError: "Gemini quota exceeded" })}
       />,
     );
     expect(screen.getByText("Portrait failed")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Placeholder portrait for Mole" })).toBeInTheDocument();
+    // The raw error stays available, but only as secondary/compact text —
+    // never as the primary portrait visual.
     expect(screen.getByText("Gemini quota exceeded")).toBeInTheDocument();
   });
 
@@ -48,10 +51,10 @@ describe("CharacterCard", () => {
     expect(screen.queryByText("Portrait failed")).not.toBeInTheDocument();
   });
 
-  it("shows neither indicator while IDLE (nothing generated yet)", () => {
+  it("shows the mock portrait but no state indicator while IDLE (nothing generated yet)", () => {
     render(<CharacterCard character={character()} />);
     expect(screen.queryByText("Generating...")).not.toBeInTheDocument();
     expect(screen.queryByText("Portrait failed")).not.toBeInTheDocument();
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Placeholder portrait for Mole" })).toBeInTheDocument();
   });
 });
