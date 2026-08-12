@@ -26,9 +26,26 @@ steps.
 
 ### Works, confirmed with real Gemini calls: Style, Characters
 
-Both were run live against the real API during development and produced
-correct, on-topic text output (art style description, two character names +
-prompts).
+Two different claims live under "works," and they're not the same:
+Gemini returning valid text is one; the step **flow** — sequencing,
+duplicate-call blocking, replay-blocking, context chaining — actually
+working is another. Both are confirmed here, not just the first one.
+Run twice, live, against the real API and the real running dev server,
+with two different books:
+
+- Style then Characters each produced different, on-topic output both
+  times (art style description, two character names + prompts).
+- Firing a **second, concurrent request** at a step already `RUNNING`
+  returned `409` with the Gemini call count unchanged — checked by
+  counting calls, not assumed.
+- Calling an already-`COMPLETED` step again returned `409` instead of
+  re-running it.
+- Characters' request reused `previous_interaction_id` from the Style
+  interaction and successfully recalled that context, instead of
+  resending the full book text.
+
+**This confirms the flow only for Style → Characters.** It does not
+extend to Portraits/Chapters/Illustrations — see below.
 
 ### Does NOT work right now: Portraits, Chapters, Illustrations (real images)
 
@@ -100,6 +117,18 @@ fresh key you can still hit this same daily ceiling with normal use.
   doing the wrong thing.
 - This is a Google account/billing limitation, not a code bug — but I'm
   flagging it here instead of hiding behind "should work in theory."
+
+**One more distinction worth being precise about, for Portraits
+specifically: only its *failure* branch of the flow was ever live-tested,
+not its success branch.** Two real characters independently hit the real
+quota error above. That's live proof the flow correctly kept going after
+the first character's failure instead of aborting the whole step, recorded
+a distinct `FAILED` state per character, and surfaced the real error
+safely instead of crashing. It is *not* proof the success branch — claim →
+Gemini returns an image → `parseGeneratedImage()` → persist → advance —
+works, because no real image response has ever reached that code. Chapters
+and Illustrations have no live evidence in either direction, only the 154
+mocked tests.
 
 ## Tech Stack
 
