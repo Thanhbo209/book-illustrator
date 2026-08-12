@@ -3,7 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Stepper } from "@/components/pipeline/Stepper";
 import { StyleStepPanel } from "@/components/pipeline/StyleStepPanel";
 import { CharactersStepPanel } from "@/components/pipeline/CharactersStepPanel";
+import { PortraitsStepPanel } from "@/components/pipeline/PortraitsStepPanel";
+import { ChaptersStepPanel } from "@/components/pipeline/ChaptersStepPanel";
+import { IllustrationsStepPanel } from "@/components/pipeline/IllustrationsStepPanel";
 import { CharacterCard } from "@/components/pipeline/CharacterCard";
+import { ChapterCard } from "@/components/pipeline/ChapterCard";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getProjectForUser } from "@/lib/storage/projects";
 
@@ -37,6 +41,9 @@ export default async function ProjectDetailPage({
           <Stepper currentStep={project.currentStep} stepState={project.stepState} />
           <StyleStepPanel project={project} />
           <CharactersStepPanel project={project} />
+          <PortraitsStepPanel project={project} />
+          <ChaptersStepPanel project={project} />
+          <IllustrationsStepPanel project={project} />
         </CardContent>
       </Card>
 
@@ -55,6 +62,14 @@ export default async function ProjectDetailPage({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {project.characters.map((character) => (
             <CharacterCard key={character.id} character={character} />
+          ))}
+        </div>
+      ) : null}
+
+      {project.chapters.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4">
+          {project.chapters.map((chapter) => (
+            <ChapterCard key={chapter.id} chapter={chapter} />
           ))}
         </div>
       ) : null}
