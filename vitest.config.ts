@@ -9,6 +9,11 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
     exclude: ["**/node_modules/**", "**/.next/**"],
+    // Multiple worker files share one SQLite file (test.db) via
+    // better-sqlite3 (single-writer) — setup chains for the later
+    // pipeline steps now involve several sequential $transaction calls,
+    // which can exceed the 5s default under parallel contention.
+    testTimeout: 15000,
     // Dedicated test database — never the dev DB (docs/plan.md §7).
     env: {
       DATABASE_URL: "file:./test.db",
