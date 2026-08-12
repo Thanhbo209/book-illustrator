@@ -13,12 +13,41 @@ export function bookTextPath(projectId: string): string {
   return path.join(projectDir(projectId), "book.txt");
 }
 
-export function characterPortraitPath(projectId: string, order: number): string {
-  return path.join(projectDir(projectId), "characters", `${order}.png`);
+// Gemini's actual image output type is unverified (quota-blocked) — never
+// assume PNG. The extension is derived from whatever mime type the
+// response actually reports, and the resulting path (stored on the
+// Character/Chapter row) is what later determines how the image is served.
+const EXTENSION_BY_MIME_TYPE: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
+const MIME_TYPE_BY_EXTENSION: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
+function extensionForMimeType(mimeType: string): string {
+  return EXTENSION_BY_MIME_TYPE[mimeType] ?? mimeType.split("/")[1]?.split("+")[0] ?? "bin";
 }
 
-export function chapterIllustrationPath(projectId: string, order: number): string {
-  return path.join(projectDir(projectId), "chapters", `${order}.png`);
+/** Infers Content-Type from a persisted image path's extension. Never falls back to image/png for an unknown type. */
+export function mimeTypeForPath(filePath: string): string {
+  const extension = path.extname(filePath).slice(1).toLowerCase();
+  return MIME_TYPE_BY_EXTENSION[extension] ?? "application/octet-stream";
+}
+
+export function characterPortraitPath(projectId: string, order: number, mimeType: string): string {
+  return path.join(projectDir(projectId), "characters", `${order}.${extensionForMimeType(mimeType)}`);
+}
+
+export function chapterIllustrationPath(projectId: string, order: number, mimeType: string): string {
+  return path.join(projectDir(projectId), "chapters", `${order}.${extensionForMimeType(mimeType)}`);
 }
 
 export async function writeBookText(projectId: string, text: string): Promise<void> {
