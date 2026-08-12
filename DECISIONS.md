@@ -24,6 +24,8 @@
 
 **Final decision:** Update the Portraits panel to poll while its request is running. Keep Style and Characters unchanged unless testing shows they have the same problem.
 
+**Recorded in:** `6797906` — "feat: add portrait generation panel" (2026-08-12).
+
 <!-- DECISION 3 -->
 
 ## Image file type
