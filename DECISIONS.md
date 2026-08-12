@@ -39,5 +39,3 @@
 **Final decision:** Check the image type from Gemini and make sure the saved file and response use the correct type.
 
 **Recorded in:** `b32bc06` — "fix: preserve Gemini image MIME types" (2026-08-12).
-
-![alt text](image.png)
