@@ -6,7 +6,7 @@ import { deriveProjectStatus, isStale, STALE_MS } from "@/lib/pipeline/state";
 import type { CharacterModel, ChapterModel, ProjectModel } from "@/lib/generated/prisma/models";
 import type { CharacterDTO, ChapterDTO, ProjectDetail, ProjectSummary } from "@/types/domain";
 import type { PipelineStep } from "@/types/pipeline";
-import type { CharacterOutput } from "@/lib/validation/gemini";
+import type { CharacterOutput, ChapterOutput } from "@/lib/validation/gemini";
 
 function toCharacterDTO(character: CharacterModel): CharacterDTO {
   return {
@@ -204,4 +204,85 @@ export async function failStep(projectId: string, message: string): Promise<void
     where: { id: projectId },
     data: { stepState: "FAILED", stepError: message, stepStartedAt: null },
   });
+}
+
+export async function startCharacterPortrait(characterId: string): Promise<void> {
+  await prisma.character.update({
+    where: { id: characterId },
+    data: { portraitState: "RUNNING", portraitError: null },
+  });
+}
+
+export async function completeCharacterPortrait(
+  characterId: string,
+  portraitPath: string,
+): Promise<void> {
+  await prisma.character.update({
+    where: { id: characterId },
+    data: { portraitState: "COMPLETED", portraitPath, portraitError: null },
+  });
+}
+
+export async function failCharacterPortrait(characterId: string, message: string): Promise<void> {
+  await prisma.character.update({
+    where: { id: characterId },
+    data: { portraitState: "FAILED", portraitError: message },
+  });
+}
+
+/** Advances the project once every character's portrait is COMPLETED. */
+export async function advancePortraitsStep(projectId: string): Promise<void> {
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { currentStep: "CHAPTERS", stepState: "IDLE", stepStartedAt: null, stepError: null },
+  });
+}
+
+export interface CompleteChaptersStepInput {
+  projectId: string;
+  chapter: ChapterOutput;
+  interactionId: string;
+}
+
+export async function completeChaptersStep(input: CompleteChaptersStepInput): Promise<void> {
+  await prisma.$transaction([
+    // Defensive: clears out any stale row from an earlier partial attempt
+    // before writing the current, validated one.
+    prisma.chapter.deleteMany({ where: { projectId: input.projectId } }),
+    prisma.chapter.create({
+      data: {
+        projectId: input.projectId,
+        order: 1,
+        title: input.chapter.title,
+        prompt: input.chapter.prompt,
+      },
+    }),
+    prisma.project.update({
+      where: { id: input.projectId },
+      data: {
+        lastInteractionId: input.interactionId,
+        currentStep: "ILLUSTRATIONS",
+        stepState: "IDLE",
+        stepStartedAt: null,
+        stepError: null,
+      },
+    }),
+  ]);
+}
+
+export async function completeIllustrationStep(
+  chapterId: string,
+  projectId: string,
+  illustrationPath: string,
+): Promise<void> {
+  await prisma.$transaction([
+    prisma.chapter.update({
+      where: { id: chapterId },
+      data: { illustrationState: "COMPLETED", illustrationPath, illustrationError: null },
+    }),
+    prisma.project.update({
+      where: { id: projectId },
+      data: { currentStep: "DONE", stepState: "IDLE", stepStartedAt: null, stepError: null },
+    }),
+  ]);
 }

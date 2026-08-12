@@ -4,13 +4,19 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/storage/db";
 import {
+  advancePortraitsStep,
   claimStep,
   completeCharactersStep,
+  completeChaptersStep,
+  completeCharacterPortrait,
+  completeIllustrationStep,
   completeStyleStep,
   createProject,
+  failCharacterPortrait,
   failStep,
   getProjectForUser,
   listProjectsForUser,
+  startCharacterPortrait,
 } from "@/lib/storage/projects";
 import { STALE_MS } from "@/lib/pipeline/state";
 
@@ -263,6 +269,147 @@ describe("project storage", () => {
       const detail = await getProjectForUser(project.id, user.id);
       expect(detail?.characters).toHaveLength(1);
       expect(detail?.characters[0].name).toBe("Mole");
+    });
+  });
+
+  describe("per-character portrait state", () => {
+    async function createProjectAtPortraits(userId: string) {
+      const project = await createProject({ userId, title: "T", bookText: "text" });
+      await claimStep(project.id, userId, "STYLE");
+      await completeStyleStep({
+        projectId: project.id,
+        style: "Watercolor",
+        bookFileUri: "files/abc",
+        bookFileExpiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        interactionId: "int-style",
+      });
+      await claimStep(project.id, userId, "CHARACTERS");
+      await completeCharactersStep({
+        projectId: project.id,
+        characters: [
+          { name: "Mole", prompt: "a small mole" },
+          { name: "Rat", prompt: "a water rat" },
+        ],
+        interactionId: "int-characters",
+      });
+      return project;
+    }
+
+    it("tracks a single character's portrait through running -> completed independently of the others", async () => {
+      const user = await createTestUser();
+      userIds.push(user.id);
+      const project = await createProjectAtPortraits(user.id);
+      projectIds.push(project.id);
+      const [first, second] = (await getProjectForUser(project.id, user.id))!.characters;
+
+      await startCharacterPortrait(first.id);
+      let detail = await getProjectForUser(project.id, user.id);
+      expect(detail?.characters.find((c) => c.id === first.id)?.portraitState).toBe("RUNNING");
+      expect(detail?.characters.find((c) => c.id === second.id)?.portraitState).toBe("IDLE");
+
+      await completeCharacterPortrait(first.id, "/data/projects/x/characters/1.jpg");
+      detail = await getProjectForUser(project.id, user.id);
+      const completedFirst = detail?.characters.find((c) => c.id === first.id);
+      expect(completedFirst?.portraitState).toBe("COMPLETED");
+      // The stored path's extension is what later drives Content-Type — confirm it isn't hardcoded to .png.
+      expect(completedFirst?.portraitUrl).not.toBeNull();
+      expect(detail?.characters.find((c) => c.id === second.id)?.portraitState).toBe("IDLE");
+    });
+
+    it("records a failure on one character without affecting the other", async () => {
+      const user = await createTestUser();
+      userIds.push(user.id);
+      const project = await createProjectAtPortraits(user.id);
+      projectIds.push(project.id);
+      const [first, second] = (await getProjectForUser(project.id, user.id))!.characters;
+
+      await completeCharacterPortrait(first.id, "/data/projects/x/characters/1.png");
+      await failCharacterPortrait(second.id, "Gemini quota exceeded");
+
+      const detail = await getProjectForUser(project.id, user.id);
+      expect(detail?.characters.find((c) => c.id === first.id)?.portraitState).toBe("COMPLETED");
+      const failedSecond = detail?.characters.find((c) => c.id === second.id);
+      expect(failedSecond?.portraitState).toBe("FAILED");
+      expect(failedSecond?.portraitError).toBe("Gemini quota exceeded");
+    });
+
+    it("advancePortraitsStep moves the project to CHAPTERS", async () => {
+      const user = await createTestUser();
+      userIds.push(user.id);
+      const project = await createProjectAtPortraits(user.id);
+      projectIds.push(project.id);
+      await claimStep(project.id, user.id, "PORTRAITS");
+
+      await advancePortraitsStep(project.id);
+
+      const detail = await getProjectForUser(project.id, user.id);
+      expect(detail?.currentStep).toBe("CHAPTERS");
+      expect(detail?.stepState).toBe("IDLE");
+    });
+  });
+
+  describe("completeChaptersStep / completeIllustrationStep", () => {
+    async function createProjectAtChapters(userId: string) {
+      const project = await createProject({ userId, title: "T", bookText: "text" });
+      await claimStep(project.id, userId, "STYLE");
+      await completeStyleStep({
+        projectId: project.id,
+        style: "Watercolor",
+        bookFileUri: "files/abc",
+        bookFileExpiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        interactionId: "int-style",
+      });
+      await claimStep(project.id, userId, "CHARACTERS");
+      await completeCharactersStep({
+        projectId: project.id,
+        characters: [{ name: "Mole", prompt: "a small mole" }],
+        interactionId: "int-characters",
+      });
+      await advancePortraitsStep(project.id);
+      return project;
+    }
+
+    it("persists the chapter, updates the text chain, and advances to ILLUSTRATIONS", async () => {
+      const user = await createTestUser();
+      userIds.push(user.id);
+      const project = await createProjectAtChapters(user.id);
+      projectIds.push(project.id);
+      await claimStep(project.id, user.id, "CHAPTERS");
+
+      await completeChaptersStep({
+        projectId: project.id,
+        chapter: { title: "River Bank", prompt: "Mole meets the Water Rat" },
+        interactionId: "int-chapters",
+      });
+
+      const detail = await getProjectForUser(project.id, user.id);
+      expect(detail?.currentStep).toBe("ILLUSTRATIONS");
+      expect(detail?.stepState).toBe("IDLE");
+      expect(detail?.chapters).toHaveLength(1);
+      expect(detail?.chapters[0]).toMatchObject({ order: 1, title: "River Bank" });
+    });
+
+    it("persists the illustration and advances the project to DONE", async () => {
+      const user = await createTestUser();
+      userIds.push(user.id);
+      const project = await createProjectAtChapters(user.id);
+      projectIds.push(project.id);
+      await claimStep(project.id, user.id, "CHAPTERS");
+      await completeChaptersStep({
+        projectId: project.id,
+        chapter: { title: "River Bank", prompt: "Mole meets the Water Rat" },
+        interactionId: "int-chapters",
+      });
+      const chapter = (await getProjectForUser(project.id, user.id))!.chapters[0];
+      await claimStep(project.id, user.id, "ILLUSTRATIONS");
+
+      await completeIllustrationStep(chapter.id, project.id, "/data/projects/x/chapters/1.webp");
+
+      const detail = await getProjectForUser(project.id, user.id);
+      expect(detail?.currentStep).toBe("DONE");
+      expect(detail?.status).toBe("DONE");
+      expect(detail?.chapters[0].illustrationState).toBe("COMPLETED");
+      expect(detail?.chapters[0].illustrationUrl).not.toBeNull();
     });
   });
 });
